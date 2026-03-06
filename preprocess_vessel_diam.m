@@ -38,8 +38,7 @@ function diam_norm = preprocess_vessel_diam(img_data, baseline_window, show_plot
     % Window should be long enough to capture slow drift but not vasomotion
     % Rule of thumb: at least 10x the slowest physiological period of interest
     % Slowest vasomotion ~0.1 Hz → period ~10 s → window ~100 s
-    win_sec   = baseline_window;
-    win_frames = round(win_sec * fs_cam);
+    win_frames = round(baseline_window * fs_cam);
     if mod(win_frames, 2) == 0
         win_frames = win_frames + 1;  % make odd for symmetric window
     end

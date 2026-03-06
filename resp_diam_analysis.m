@@ -1,273 +1,198 @@
-%% TEST 02 — Respiration → Heart Rate ETA
-%  Trigger on inspiration peaks, average instantaneous heart rate around
-%  each trigger.  Tests for respiratory sinus arrhythmia: does the mouse's
-%  heart speed up during inspiration and slow down during expiration?
-%
-%  Signals used : respiration + ECG (no vessel diameter)
-%  Good-section catalog : resp ∩ ECG
-%  Established conventions:
-%    - All times in camera clock (t_phys = t_ECG − t_ecgoffset)
-%    - Beat-indexed ETA on native R-peak times (no interpolation)
-%    - 2-second sliding-window std for resp amplitude
-%    - MinPeakProminence = 0.5 × median |resp_filt| alongside MinPeakDistance
-%    - Diagnostic time axis anchored to t_frames(1)
-
 %% ========================================================================
-%  1. DATA LOADING
+%  TEST 1 - Respiration-Triggered Vessel Diameter Averaging
+%  Signals needed: respiration + vessel diameter (no ECG required)
+%  Question: does vessel diameter show a stereotyped response to each breath?
 %  ========================================================================
-signal_data = load('.\data\signals.mat');
-img_data    = load('.\data\im.mat');          % needed for t_ecgoffset, t_frames
 
-% --- physiology signals (1000 Hz) ---
-t_ECG  = double(signal_data.t_ECG(:));
-resp   = double(signal_data.resp(:));
-fs_phys = 1 / median(diff(t_ECG));            % ≈ 1000 Hz
+clear; clc; close all;
 
-% --- R-peak indices (from CNN detector, conf >= 0.5) ---
-good_r_peaks = signal_data.good_r_peaks;
+%% 0. Data loading
+signal_data = load(".\data\signals.mat");
+img_data    = load(".\data\im.mat");
 
-% --- camera timing (for clock reference only) ---
-t_frames    = double(img_data.t_frames(:));
+t_ecg    = double(signal_data.t_ECG(:));
+resp_raw = double(signal_data.resp(:));
+t_frames = double(img_data.t_frames(:));
+
+fs_cam = 1 / median(diff(t_frames));
+fs_ecg = 1 / median(diff(t_ecg));
+
 t_ecgoffset = double(img_data.t_ecgoffset);
+assert(t_ecgoffset > 0, 't_ecgoffset must be positive.')
+t_phys = t_ecg - t_ecgoffset;
 
-%% ========================================================================
-%  2. TIME ALIGNMENT  (everything → camera clock)
-%  ========================================================================
-t_phys = t_ECG - t_ecgoffset;                 % physiology times in camera clock
+%% 1. Vessel diameter preprocessing
+diam_norm = preprocess_vessel_diam(img_data);
 
-%% ========================================================================
-%  3. RESPIRATION PREPROCESSING  (native 1000 Hz)
-%  ========================================================================
-band_resp = [0.5 5];                           % Hz — mouse breathing range
-resp_filt = bandpass(resp, band_resp, fs_phys);
+%% 2. Respiration preprocessing
+% 2a. Lowpass at 5 Hz to remove cardiac contamination
+%     Mouse breathing: ~1-4 Hz.  Mouse cardiac: ~8-12 Hz.
+Fc_resp = 5;
+[b_lp, a_lp] = butter(4, Fc_resp / (fs_ecg/2), 'low');
+resp_filt = filtfilt(b_lp, a_lp, resp_raw);
 
-% --- sliding-window std for amplitude estimation (2-s window) ---
-amp_win_sec  = 2;                              % captures 4–8 breath cycles
-amp_win_samp = round(amp_win_sec * fs_phys);
-resp_std = movstd(resp, amp_win_samp);
+% 2b. Sliding-window std to find good-amplitude breathing sections
+%     2-second window -> captures 4-8 breath cycles at 2-4 Hz breathing,
+%     giving a stable amplitude estimate.
+win_std_sec  = 2;
+win_std_samp = round(win_std_sec * fs_ecg);
+resp_std     = movstd(resp_filt, win_std_samp);
 
-% --- identify quiet-breathing sections ---
-%  High resp_std → active/clipped breathing; low → quiet usable epochs.
-%  Threshold: use median of resp_std as a reasonable split.
-%  (User may adjust based on diagnostic plot.)
-resp_std_thresh = median(resp_std);
-quiet_mask = resp_std < resp_std_thresh;       % logical, 1000 Hz
+% Visualise - use this to tune the threshold
+figure('Name', 'Resp std distribution');
+histogram(resp_std, 100, 'FaceColor', [0.27 0.51 0.71], 'EdgeColor', 'none');
+xlabel('Sliding-window std (a.u.)'); ylabel('Count');
+title('Respiration amplitude distribution - choose threshold');
 
-% Convert to contiguous sections (start/end indices in t_phys)
-d_quiet = diff([0; quiet_mask(:); 0]);
-resp_starts_idx = find(d_quiet ==  1);
-resp_ends_idx   = find(d_quiet == -1) - 1;
+% Start with 25th percentile; adjust after inspecting the histogram
+std_thresh = prctile(resp_std, 30);
+xline(std_thresh, '--r', 'LineWidth', 1.5, ...
+      'Label', sprintf('Threshold = %.3f', std_thresh));
+fprintf('Resp std threshold (25th pctile): %.4f\n', std_thresh);
 
-min_dur_sec = 5;
-resp_durs   = (resp_ends_idx - resp_starts_idx + 1) / fs_phys;
-keep_resp   = resp_durs >= min_dur_sec;
+resp_good_mask = resp_std > std_thresh;
 
-resp_sections = table( ...
-    t_phys(resp_starts_idx(keep_resp)), ...
-    t_phys(resp_ends_idx(keep_resp)),   ...
-    resp_durs(keep_resp), ...
-    'VariableNames', {'t_start','t_end','duration'});
+% 2c. Detect breath peaks in filtered signal
+%     MinPeakProminence rejects the tiny wiggles between real breaths.
+%     Start with median prominence / 2 as threshold; tune after visual check.
+min_peak_dist = round(0.20 * fs_ecg);          % 200 ms (~5 Hz ceiling)
+resp_prom     = median(abs(resp_filt)) * 1;   % data-driven prominence threshold
 
-fprintf('Resp good sections:  %d  (%.1f s total)\n', ...
-    height(resp_sections), sum(resp_sections.duration));
+[~, pk_locs] = findpeaks( resp_filt, 'MinPeakDistance', min_peak_dist, ...
+                          'MinPeakProminence', resp_prom);
+[~, tr_locs] = findpeaks(-resp_filt, 'MinPeakDistance', min_peak_dist, ...
+                          'MinPeakProminence', resp_prom);
 
-%% ========================================================================
-%  4. ECG GOOD SECTIONS  (via find_good_r_peak_sections)
-%  ========================================================================
-%  Derive R-peak times from good_r_peaks indices, clip to valid camera range
-t_rpeaks = t_phys(good_r_peaks);
-t_rpeaks = t_rpeaks(t_rpeaks > 0 & t_rpeaks < t_frames(end));
+% Keep only peaks/troughs inside good-std regions
+pk_good = pk_locs(resp_good_mask(pk_locs));
+tr_good = tr_locs(resp_good_mask(tr_locs));
 
-ecg_sec_struct = find_good_r_peak_sections(t_rpeaks, min_dur_sec);
+fprintf('Breath peaks: %d total, %d in good regions\n', ...
+        numel(pk_locs), numel(pk_good));
 
-% Convert struct array → table to match resp_sections format
-ecg_sections = table( ...
-    [ecg_sec_struct.t_start]', ...
-    [ecg_sec_struct.t_end]', ...
-    [ecg_sec_struct.duration]', ...
-    'VariableNames', {'t_start','t_end','duration'});
+% 2d. Sanity check - breath rate distribution
+breath_rate_Hz = 1 ./ diff(t_phys(pk_good));
 
-fprintf('ECG good sections:   %d  (%.1f s total)\n', ...
-    height(ecg_sections), sum(ecg_sections.duration));
+figure('Name', 'Breath rate distribution');
+histogram(breath_rate_Hz, 50, 'FaceColor', [0.47 0.67 0.19], 'EdgeColor', 'none');
+xlabel('Breath rate (Hz)'); ylabel('Count');
+title('Instantaneous breathing rate (peak-to-peak)');
+fprintf('Breath rate: median = %.1f Hz, IQR = [%.1f, %.1f] Hz\n', ...
+        median(breath_rate_Hz), prctile(breath_rate_Hz, 25), prctile(breath_rate_Hz, 75));
 
-%% ========================================================================
-%  5. INTERSECT  resp ∩ ECG  good sections
-%  ========================================================================
-good_sections = intersect_sections(resp_sections, ecg_sections, min_dur_sec);
-fprintf('Resp∩ECG sections:   %d  (%.1f s total)\n', ...
-    height(good_sections), sum(good_sections.duration));
-
-%% ========================================================================
-%  6. COLLECT R-PEAK TIMES FROM GOOD ECG SECTIONS
-%  ========================================================================
-%  HR will be computed beat-by-beat in the ETA step. Here we just need
-%  all valid R-peak times in one sorted vector for nearest-peak lookup.
-
-t_rpeaks_good = [];
-for s = 1:numel(ecg_sec_struct)
-    t_rpeaks_good = [t_rpeaks_good; ecg_sec_struct(s).peak_time(:)]; %#ok<AGROW>
-end
-t_rpeaks_good = sort(t_rpeaks_good);
-
-fprintf('Good R-peaks:  %d  spanning %.1f – %.1f s\n', ...
-    numel(t_rpeaks_good), t_rpeaks_good(1), t_rpeaks_good(end));
-
-%% ========================================================================
-%  7. FIND INSPIRATION PEAKS  (within good sections only)
-%  ========================================================================
-%  Peak detection on bandpass-filtered respiration (1000 Hz).
-%  MinPeakDistance from typical mouse breathing: min ~0.15 s (= 1/~6.5 Hz)
-%  MinPeakProminence: 0.5 × median |resp_filt| to avoid catching wiggles.
-
-min_peak_dist_sec  = 0.15;                     % seconds
-min_peak_dist_samp = round(min_peak_dist_sec * fs_phys);
-min_prom = 0.5 * median(abs(resp_filt));
-
-insp_times_all = [];                           % collect across sections
-
-for s = 1:height(good_sections)
-    idx_start = find(t_phys >= good_sections.t_start(s), 1, 'first');
-    idx_end   = find(t_phys <= good_sections.t_end(s),   1, 'last');
-    seg       = resp_filt(idx_start:idx_end);
-
-    [~, locs] = findpeaks(seg, ...
-        'MinPeakDistance',   min_peak_dist_samp, ...
-        'MinPeakProminence', min_prom);
-
-    insp_times_all = [insp_times_all; t_phys(idx_start - 1 + locs)]; %#ok<AGROW>
-end
-
-fprintf('Inspiration peaks found: %d\n', numel(insp_times_all));
-
-%% ========================================================================
-%  8. ETA — BEAT-INDEXED
-%  ========================================================================
-%  For each inspiration peak, find the nearest R-peak, then grab ±N beats.
-%  HR for beat i = 60 / (t_rpeak(i+1) − t_rpeak(i)).
-%  Beat index 0 = the RR interval starting at the nearest R-peak.
-%  All triggers align by beat number — no interpolation, no binning.
-
-n_beats_half = 5;                              % ±5 beats around trigger
-beat_offsets = -n_beats_half : n_beats_half;   % -5 ... 0 ... +5
-n_beat_win   = numel(beat_offsets);
-
-% For each trigger, find nearest R-peak index
-n_rp = numel(t_rpeaks_good);
-insp_rp_idx = interp1(t_rpeaks_good, 1:n_rp, insp_times_all, 'nearest');
-insp_rp_idx = round(insp_rp_idx);
-
-% Boundary guard: need n_beats_half extra peaks on each side for HR calc
-%  HR at beat i requires peak i and peak i+1, so rightmost beat offset
-%  needs peak at (idx + n_beats_half + 1)
-valid = insp_rp_idx - n_beats_half >= 1 & ...
-        insp_rp_idx + n_beats_half + 1 <= n_rp & ...
-        ~isnan(insp_rp_idx);
-insp_rp_idx = insp_rp_idx(valid);
-n_events = numel(insp_rp_idx);
-fprintf('Valid ETA events: %d / %d\n', n_events, numel(insp_times_all));
-
-% Build index matrix: each row is one trigger, columns are beat offsets
-%  idx_matrix(k, j) → index into t_rpeaks_good for beat offset j
-idx_matrix = insp_rp_idx(:) + beat_offsets;    % n_events × n_beat_win
-
-% HR for each beat = 60 / (next_peak − this_peak)
-%  So for beat offset j, HR = 60 / (t_rpeaks_good(idx+1) − t_rpeaks_good(idx))
-hr_snippets = 60 ./ (t_rpeaks_good(idx_matrix + 1) - t_rpeaks_good(idx_matrix));
-
-% --- mean ± SEM ---
-eta_mean = mean(hr_snippets, 1);
-eta_sem  = std(hr_snippets, 0, 1) / sqrt(n_events);
-
-fprintf('ETA: %d triggers, %d beats per snippet\n', n_events, n_beat_win);
-
-%% ========================================================================
-%  9. DIAGNOSTIC PLOTS
-%  ========================================================================
-
-figure('Position', [100 100 900 700], 'Color', 'w');
-
-% ---- Panel 1: example good section (resp + HR + peak markers) -----------
-ax1 = subplot(2,1,1);
-
-% Pick the longest section for the example
-[~, best] = max(good_sections.duration);
-ex_start = good_sections.t_start(best);
-ex_end   = good_sections.t_end(best);
-% Show at most 10 seconds for readability
-ex_end   = min(ex_end, ex_start + 10);
-
-% Respiration trace (filtered, physiology grid)
-mask_resp = t_phys >= ex_start & t_phys <= ex_end;
-yyaxis left
-plot(t_phys(mask_resp), resp_filt(mask_resp), 'Color', [0.2 0.5 0.8], ...
-    'LineWidth', 0.8);
-ylabel('Resp (filtered, a.u.)');
-
-% HR trace — beat-by-beat values plotted at R-peak times
-rr_good = diff(t_rpeaks_good);
-hr_good = 60 ./ rr_good;
-t_hr_plot = t_rpeaks_good(1:end-1);            % HR lives at each beat
-mask_hr = t_hr_plot >= ex_start & t_hr_plot <= ex_end;
-yyaxis right
-plot(t_hr_plot(mask_hr), hr_good(mask_hr), '.-', 'Color', [0.85 0.33 0.1], ...
-    'MarkerSize', 8, 'LineWidth', 0.8);
-ylabel('Heart rate (bpm)');
-
-% Mark inspiration peaks in this window
-peaks_in_win = insp_times_all(insp_times_all >= ex_start & insp_times_all <= ex_end);
-yyaxis left; hold on;
-for k = 1:numel(peaks_in_win)
-    xline(peaks_in_win(k), '--', 'Color', [0.4 0.4 0.4], 'Alpha', 0.5);
-end
+% 2e. Visual check - plot from camera start (where diam data exists)
+figure('Name', 'Resp peak detection check');
+t_plot_start = t_frames(1);        % start of vessel data
+t_plot_end   = t_plot_start + 10;  % 10 seconds
+idx_show = t_phys >= t_plot_start & t_phys <= t_plot_end;
+plot(t_phys(idx_show), resp_filt(idx_show), 'k', 'LineWidth', 0.8); hold on;
+pk_show = pk_good(t_phys(pk_good) >= t_plot_start & t_phys(pk_good) <= t_plot_end);
+tr_show = tr_good(t_phys(tr_good) >= t_plot_start & t_phys(tr_good) <= t_plot_end);
+plot(t_phys(pk_show), resp_filt(pk_show), 'rv', 'MarkerFaceColor', 'r');
+plot(t_phys(tr_show), resp_filt(tr_show), 'b^', 'MarkerFaceColor', 'b');
+xlabel('Time (s)'); ylabel('Resp (a.u.)');
+title('Filtered respiration - 10 s from camera start');
+legend('Filtered resp', 'Insp. peak', 'Exp. trough');
 hold off;
 
-xlabel('Time (s)');
-title(sprintf('Example good section (%.1f s)', ex_end - ex_start));
-xlim([ex_start ex_end]);
+%% 3. Identify good resp sections and filter to >=5 s
+%     We only need this to ensure breath peaks come from sustained clean
+%     breathing, not isolated good samples surrounded by noise.
+min_section_sec = 5;
+resp_good_runs  = bwconncomp(resp_good_mask);
 
-% ---- Panel 2: ETA  (mean ± SEM, beat-indexed) ---------------------------
-ax2 = subplot(2,1,2);
+% Build a mask of samples that belong to sufficiently long good runs
+resp_long_mask = false(size(resp_good_mask));
+for r = 1:resp_good_runs.NumObjects
+    idx = resp_good_runs.PixelIdxList{r};
+    dur = (idx(end) - idx(1)) / fs_ecg;
+    if dur >= min_section_sec
+        resp_long_mask(idx) = true;
+    end
+end
 
-fill([beat_offsets fliplr(beat_offsets)], ...
-     [eta_mean + eta_sem, fliplr(eta_mean - eta_sem)], ...
-     [0.8 0.85 1], 'EdgeColor', 'none', 'FaceAlpha', 0.6);
+% Final set of breath peaks: in good-std AND in a >=5 s run
+pk_final = pk_good(resp_long_mask(pk_good));
+fprintf('Breath peaks in good sections (>=%d s): %d\n', ...
+        min_section_sec, numel(pk_final));
+
+%% 4. Vectorised resp-triggered ETA (same pattern as R-peak -> diam)
+
+% Convert breath peak times to nearest camera frame indices
+t_pk_final = t_phys(pk_final);
+pk_frame_idx = interp1(t_frames, 1:numel(t_frames), t_pk_final, 'nearest');
+pk_frame_idx = pk_frame_idx(~isnan(pk_frame_idx));
+
+% ETA window: +/-500 ms (covers one full breath cycle at ~2 Hz)
+win_sec  = 0.500;
+win_samp = round(win_sec * fs_cam);
+t_win    = (-win_samp:win_samp) / fs_cam * 1000;  % ms
+
+% Remove edge cases
+valid = pk_frame_idx - win_samp >= 1 & pk_frame_idx + win_samp <= numel(diam_norm);
+pk_frame_idx = pk_frame_idx(valid);
+
+% Build index matrix and extract all snippets in one shot
+offsets      = -win_samp:win_samp;
+idx_matrix   = round(pk_frame_idx(:)) + offsets;
+all_snippets = diam_norm(idx_matrix);
+
+n_triggers = size(all_snippets, 1);
+eta_mean   = mean(all_snippets, 1);
+eta_sem    = std(all_snippets, 0, 1) / sqrt(n_triggers);
+
+fprintf('Resp-triggered ETA: %d breath triggers used\n', n_triggers);
+
+%% 5. Plot
+figure('Position', [100 100 900 400]);
+
+% Left: individual traces + mean
+subplot(1,2,1);
 hold on;
-plot(beat_offsets, eta_mean, '.-', 'Color', [0.15 0.3 0.7], ...
-    'LineWidth', 1.8, 'MarkerSize', 14);
-xline(0, '--k', 'LineWidth', 1);
+n_show = min(50, n_triggers);
+idx_show = randperm(n_triggers, n_show);
+for k = 1:n_show
+    plot(t_win, all_snippets(idx_show(k),:), 'Color', [0.7 0.7 0.7 0.3]);
+end
+plot(t_win, eta_mean, 'b', 'LineWidth', 2);
+xline(0, 'r--', 'Insp. peak');
+xlabel('Time from inspiration peak (ms)');
+ylabel('Vessel diameter (% from baseline)');
+title(sprintf('Individual traces (n=%d shown) + mean', n_show));
 hold off;
 
-xlabel('Beat relative to inspiration');
-ylabel('Heart rate (bpm)');
-title(sprintf('Resp → HR ETA  (n = %d triggers, mean ± SEM)', n_events));
-xlim([beat_offsets(1)-0.5  beat_offsets(end)+0.5]);
-xticks(beat_offsets);
+% Right: mean +/- SEM
+subplot(1,2,2);
+hold on;
+fill([t_win fliplr(t_win)], ...
+     [eta_mean+eta_sem fliplr(eta_mean-eta_sem)], ...
+     'b', 'FaceAlpha', 0.2, 'EdgeColor', 'none');
+plot(t_win, eta_mean, 'b', 'LineWidth', 2);
+xline(0, 'r--', 'Insp. peak');
+xlabel('Time from inspiration peak (ms)');
+ylabel('Vessel diameter (% from baseline)');
+title(sprintf('Mean \\pm SEM (n=%d breaths)', n_triggers));
+hold off;
 
-sgtitle('Test 02: Respiratory Sinus Arrhythmia');
+%% Bootstrap CI on the ETA
+n_boot = 1000;
+boot_means = zeros(n_boot, size(all_snippets, 2));
 
-%% ========================================================================
-%  HELPER: intersect_sections
-%  ========================================================================
-function out = intersect_sections(A, B, min_dur)
-%INTERSECT_SECTIONS  Overlap of two section catalogs.
-%  Each input is a table with columns t_start, t_end, duration.
-%  Returns only overlapping intervals ≥ min_dur seconds.
-
-    rows = [];
-    for ia = 1:height(A)
-        for ib = 1:height(B)
-            s = max(A.t_start(ia), B.t_start(ib));
-            e = min(A.t_end(ia),   B.t_end(ib));
-            d = e - s;
-            if d >= min_dur
-                rows = [rows; s, e, d]; %#ok<AGROW>
-            end
-        end
-    end
-
-    if isempty(rows)
-        out = table([], [], [], 'VariableNames', {'t_start','t_end','duration'});
-    else
-        out = array2table(rows, 'VariableNames', {'t_start','t_end','duration'});
-    end
+for i = 1:n_boot
+    % Resample with replacement from actual triggered snippets
+    idx = randi(n_triggers, n_triggers, 1);
+    boot_means(i,:) = mean(all_snippets(idx,:), 1);
 end
+
+boot_upper = prctile(boot_means, 97.5, 1);
+boot_lower = prctile(boot_means, 2.5, 1);
+
+figure('Name', 'Bootstrap CI');
+fill([t_win fliplr(t_win)], [boot_upper fliplr(boot_lower)], ...
+     [0.7 0.85 1], 'EdgeColor', 'none'); hold on;
+plot(t_win, eta_mean, 'b', 'LineWidth', 2);
+xline(0, 'r--', 'Insp. peak');
+xlabel('Time from inspiration peak (ms)');
+ylabel('Vessel diameter (% from baseline)');
+title(sprintf('ETA with bootstrap 95%% CI  (n = %d breaths)', n_triggers));
+hold off;

@@ -1,0 +1,8 @@
+# Ignore everything
+*
+
+# But not the .gitignore itself
+!.gitignore
+
+# Track .m files in the current directory only
+!*.m
