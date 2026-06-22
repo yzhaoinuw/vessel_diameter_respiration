@@ -44,12 +44,6 @@ The vessel-derived estimate was used for heart rate validation only. It was not 
 
 Agreement among the three representations was examined within each recording. The comparison established whether they followed the same broad temporal pattern and helped identify recordings in which the estimates diverged enough to raise concern about signal quality. Agreement was interpreted as evidence about heart rate measurement reliability, not as evidence that heart rate controlled or was coupled to vessel diameter dynamics.
 
-### ECG Heart Rate Used in the Five-Minute Correlation Analysis
-
-The initial correlation analysis used the same beat-level ECG information summarized within five-minute windows. Candidate R peaks were retained when they passed the established confidence threshold and belonged to the set accepted during ECG quality review. The median heart rate was calculated for each window because it is less sensitive than the mean to isolated R-peak errors or unusually short or long beat intervals.
-
-A five-minute window was considered poor quality when it contained too few valid beats or produced an implausible heart rate. When sufficient acceptable windows were available in a recording, poor-quality windows were replaced by linear interpolation or extrapolation from the acceptable windows. This analysis-specific five-minute summary was not treated as a fourth validation estimate; it was the form of ECG heart rate matched to the five-minute vessel features in the initial correlation analysis.
-
 ## Vessel Diameter Processing
 
 The vessel diameter trace was aligned to the ECG time base using the recorded timing offset between the imaging and physiological acquisition systems. Diameter measurements were converted from pixels to micrometers before feature calculation.
@@ -68,13 +62,10 @@ The initial five-minute analysis also included mean vessel diameter. Mean diamet
 
 ## Time-Window Definitions
 
-We used two related time-window strategies to test whether the result depended on temporal resolution.
+The analysis summarized both heart rate and vessel features in ten minutes windows advanced in one-minute steps. These windows began 14 minutes after the start of the recording. Median ECG heart rate was paired with slow vasomotion amplitude, slow vasomotion power, cardiac-frequency pulsation amplitude, and mean vessel diameter calculated over the same five-minute interval.
+The ten-minute window provided more data for estimating low-frequency vessel activity, particularly spectral power in the slow vasomotion band. The resulting windows overlapped substantially, producing a smoothly sampled description of how vessel dynamics changed over time.
 
-The initial analysis summarized both heart rate and vessel features in five-minute windows advanced in one-minute steps. These windows began 14 minutes after the start of the recording. Median ECG heart rate was paired with slow vasomotion amplitude, slow vasomotion power, cardiac-frequency pulsation amplitude, and mean vessel diameter calculated over the same five-minute interval.
-
-The later analysis increased the duration of the vessel window to ten minutes while retaining a one-minute step between consecutive windows. The longer window provided more data for estimating low-frequency vessel activity, particularly spectral power in the slow vasomotion band. The resulting windows overlapped substantially, producing a smoothly sampled description of how vessel dynamics changed over time.
-
-In the implemented overlap analysis, each ten-minute vessel window was paired with the quality-filtered one-minute ECG heart rate value at the start of that window. Only windows with finite values for both measurements were included in a correlation. Because this pairing uses the heart rate at the window start rather than the average heart rate across the entire ten-minute vessel window, it should be described explicitly when the analysis is reported.
+In the implemented overlap analysis, each ten-minute vessel window was paired with the quality-filtered one-minute ECG heart rate value at the start of that window. Only windows that passed the quality check for both measurements were included in a correlation. Because this pairing uses the heart rate at the window start rather than the average heart rate across the entire ten-minute vessel window, it should be described explicitly when the analysis is reported.
 
 For both windowing approaches, correlations were evaluated over three recording periods:
 
