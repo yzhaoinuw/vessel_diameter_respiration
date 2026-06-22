@@ -4,7 +4,7 @@
 
 ### Aim
 
-The aim of the analysis is to determine whether changes in heart rate were associated with changes in vessel diameter dynamics in the dex40 mice. We examined mean vessel caliber and three features of diameter fluctuation: slow vasomotion amplitude, cardiac-frequency pulsation amplitude, and slow vasomotion power. Since the ECG recordings can be noisy for estimating the heart rate, We also compared three representations of heart rate to evaluate whether the ECG-derived measurements were internally consistent and whether they agreed with the cardiac frequency visible in the vessel signal.
+The aim of the analysis is to determine whether changes in heart rate were associated with changes in vessel diameter dynamics in the dex40 mice. We examined three features of diameter fluctuation: slow vasomotion amplitude, cardiac-frequency pulsation amplitude, and slow vasomotion power. Since the ECG recordings can be noisy for estimating the heart rate, We also compared three representations of heart rate to evaluate whether the ECG-derived measurements were internally consistent and whether they agreed with the cardiac frequency visible in the vessel signal.
 
 ### Analysis
 
@@ -14,7 +14,7 @@ The heart rate was computed from a ECG processing pipeline in which a machine le
 
 ### Results
 
-The overlapping-window analyses produced a recurring exploratory negative association between heart rate and slow vasomotion amplitude: mice tended to show smaller slow vessel oscillations when heart rate was higher. This association reached nominal significance in the early and late periods using Pearson correlation in the broader quality-qualified cohort and in the early period using Spearman correlation in the more stringently curated cohort. However, it was not consistently significant across all windows, correlation measures, or cohort definitions. Slow vasomotion power, cardiac-frequency pulsation amplitude, and mean vessel diameter did not show a stable relationship with heart rate.
+The overlapping-window analyses produced a recurring exploratory negative association between heart rate and slow vasomotion amplitude: mice tended to show smaller slow vessel oscillations when heart rate was higher. This association reached nominal significance in the early and late periods using Pearson correlation in the broader quality-qualified cohort and in the early period using Spearman correlation in the more stringently curated cohort. However, it was not consistently significant across all windows, correlation measures, or cohort definitions. Slow vasomotion power and cardiac-frequency pulsation amplitude did not show a stable relationship with heart rate.
 
 The three heart rate representations generally followed similar temporal patterns. In particular, the two ECG summaries agreed strongly despite their different binning and quality-handling rules, and both showed broad agreement with the vessel-derived cardiac frequency. These comparisons support the technical reliability of the heart rate measurement, but they do not by themselves demonstrate biological coupling between heart rate and vessel dynamics.
 
@@ -58,16 +58,14 @@ Three frequency-based vessel features were emphasized:
 
 3. **Cardiac-frequency vessel pulsation amplitude.** The detrended diameter signal was filtered within the cardiac range used for the dexmedetomidine recordings, 3.5 to 15 Hz. The interquartile range of the filtered signal was used to quantify the amplitude of vessel pulsation associated with the cardiac cycle.
 
-The initial five-minute analysis also included mean vessel diameter. Mean diameter described the vessel's baseline caliber within a window, whereas the frequency-based features described the magnitude or power of ongoing diameter fluctuations.
-
 ## Time-Window Definitions
 
-The analysis summarized both heart rate and vessel features in ten minutes windows advanced in one-minute steps. These windows began 14 minutes after the start of the recording. Median ECG heart rate was paired with slow vasomotion amplitude, slow vasomotion power, cardiac-frequency pulsation amplitude, and mean vessel diameter calculated over the same five-minute interval.
+The analysis summarized vessel features in ten-minute windows advanced in one-minute steps. These windows began 14 minutes after the start of the recording. Within each window, slow vasomotion amplitude, slow vasomotion power, and cardiac-frequency pulsation amplitude were computed and paired with heart rate.
 The ten-minute window provided more data for estimating low-frequency vessel activity, particularly spectral power in the slow vasomotion band. The resulting windows overlapped substantially, producing a smoothly sampled description of how vessel dynamics changed over time.
 
 In the implemented overlap analysis, each ten-minute vessel window was paired with the quality-filtered one-minute ECG heart rate value at the start of that window. Only windows that passed the quality check for both measurements were included in a correlation. Because this pairing uses the heart rate at the window start rather than the average heart rate across the entire ten-minute vessel window, it should be described explicitly when the analysis is reported.
 
-For both windowing approaches, correlations were evaluated over three recording periods:
+Correlations were evaluated over three recording periods:
 
 - **Early:** times before 60 minutes.
 - **Late:** times at or after 60 minutes.
@@ -115,7 +113,7 @@ The current analyses tested several vessel features across early, late, and over
 
 ### Supplementary Plots
 
-5. **Analysis sensitivity comparison.** Side-by-side group summaries comparing the five-minute and ten-minute window analyses, Pearson and Spearman correlations, and the broader versus curated recording sets. This would show which conclusions are stable across reasonable analysis choices.
+5. **Analysis sensitivity comparison.** Side-by-side group summaries comparing Pearson and Spearman correlations and the broader versus curated recording sets. This would show which conclusions are stable across reasonable analysis choices.
 
 6. **Recording-level correlation matrix.** A heat map showing the direction and magnitude of the correlation for every mouse, vessel feature, and recording period. This would make between-mouse heterogeneity visible without pooling the underlying time points.
 
