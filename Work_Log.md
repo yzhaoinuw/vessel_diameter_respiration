@@ -1,5 +1,15 @@
 # Work Log
 
+## 2026-06-23
+
+### Figure Hierarchy Revision
+
+- Moved the across-mouse sliding-window Spearman summary into the Results section as the sole main figure.
+- Moved the heart-rate validation and older non-sliding comparison figures into a supplementary section.
+- Removed the representative one-mouse scatter figure because it did not add a necessary group-level conclusion.
+- Model: Codex, GPT-5.
+- Verification: confirmed the remaining Markdown image paths resolve and reviewed the revised figure numbering and placement.
+
 ## 2026-06-22
 
 ### Sliding-Window Correlation Write-Up

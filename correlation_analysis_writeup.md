@@ -18,6 +18,10 @@ The sliding-window Spearman analysis produced an exploratory negative associatio
 
 The three heart rate representations generally followed similar temporal patterns. In particular, the two ECG summaries agreed strongly despite their different binning and quality-handling rules, and both showed broad agreement with the vessel-derived cardiac frequency. These comparisons support the technical reliability of the heart rate measurement, but they do not by themselves demonstrate biological coupling between heart rate and vessel dynamics.
 
+**Figure 1. Primary sliding-window group summary.** Each point represents one mouse's Spearman correlation. Solid red lines show the Fisher-transformed group mean after conversion back to correlation units, dotted red lines show the 95% confidence interval, and the dashed black line marks zero correlation.
+
+![Across-mouse sliding-window Spearman summary](writeup_figures/sliding_spearman_group_summary.png)
+
 ## Heart Rate Estimation and Quality Control
 
 Three heart rate estimates were compared for quality control: the quality-filtered one-minute ECG estimate used in the primary correlation analysis, an earlier ten-minute ECG estimate, and a cardiac-frequency estimate derived from vessel diameter. The purpose was to corroborate the overall heart rate trajectory, evaluate the consequences of different ECG quality-control choices, and identify recordings in which heart rate was uncertain. Only the vessel-derived estimate came from a separate measurement modality.
@@ -104,21 +108,13 @@ An earlier analysis used non-overlapping ten-minute bins and the older ten-minut
 
 Nevertheless, its broad conclusion was similar. None of the three vessel features showed a statistically significant group-level Spearman correlation with heart rate during the early, late, or overall period. The closest result was a negative late-period association between heart rate and slow vasomotion amplitude (mean correlation approximately -0.32; Fisher-transformed group test p=0.064; Wilcoxon p=0.064). This is directionally consistent with the negative slow-vasomotion-amplitude relationship observed in the sliding analysis, but it did not cross the conventional significance threshold. The other vessel features showed no stable association in either analysis.
 
-## Figures
+## Supplementary Figures
 
-**Figure 1. Representative heart rate quality-control comparison.** The quality-filtered one-minute ECG estimate, related ten-minute ECG estimate, and vessel-derived cardiac frequency are overlaid for an example recording. The two ECG estimates share the same underlying R-peak confidence pipeline; the vessel-derived estimate provides the cross-modal comparison.
+**Supplementary Figure 1. Representative heart rate quality-control comparison.** The quality-filtered one-minute ECG estimate, related ten-minute ECG estimate, and vessel-derived cardiac frequency are overlaid for an example recording. The two ECG estimates share the same underlying R-peak confidence pipeline; the vessel-derived estimate provides the cross-modal comparison.
 
 ![Representative comparison of three heart rate estimates](writeup_figures/hr_validation_example_F154.png)
 
-**Figure 2. Representative within-mouse sliding-window correlations.** Quality-filtered one-minute ECG heart rate is plotted against each of the three features calculated from overlapping ten-minute vessel windows. Early and late observations are shown separately.
-
-![Representative sliding-window Spearman correlations](writeup_figures/sliding_spearman_example_F154.png)
-
-**Figure 3. Primary sliding-window group summary.** Each point represents one mouse's Spearman correlation. Solid red lines show the Fisher-transformed group mean after conversion back to correlation units, dotted red lines show the 95% confidence interval, and the dashed black line marks zero correlation.
-
-![Across-mouse sliding-window Spearman summary](writeup_figures/sliding_spearman_group_summary.png)
-
-**Supplementary Figure 1. Older non-sliding ten-minute analysis.** This analysis used the older ten-minute ECG heart rate estimate. It showed no significant group-level correlation for any of the three vessel features, although the late-period slow-vasomotion-amplitude result showed a similar negative direction to the primary sliding analysis.
+**Supplementary Figure 2. Older non-sliding ten-minute analysis.** This analysis used the older ten-minute ECG heart rate estimate. It showed no significant group-level correlation for any of the three vessel features, although the late-period slow-vasomotion-amplitude result showed a similar negative direction to the primary sliding analysis.
 
 ![Across-mouse non-sliding Spearman summary](writeup_figures/non_sliding_legacy_spearman_group_summary.png)
 
