@@ -4,23 +4,23 @@
 
 ### Aim
 
-The aim of the analysis is to determine whether changes in heart rate were associated with changes in vessel diameter dynamics in the dex40 mice. We examined three features of diameter fluctuation: slow vasomotion amplitude, cardiac-frequency pulsation amplitude, and slow vasomotion power. Since the ECG recordings can be noisy for estimating the heart rate, We also compared three representations of heart rate to evaluate whether the ECG-derived measurements were internally consistent and whether they agreed with the cardiac frequency visible in the vessel signal.
+The aim of the analysis was to determine whether changes in heart rate were associated with changes in vessel diameter dynamics in the dex40 mice. We examined three features of diameter fluctuation: slow vasomotion amplitude, slow vasomotion power, and cardiac-frequency pulsation amplitude. Because ECG recordings can be noisy, we also compared three representations of heart rate to assess the reliability of the ECG-derived measurement used in the correlation analysis.
 
 ### Analysis
 
-Heart rate and vessel features were summarized across repeated time windows within each mouse. We used quality-filtered one-minute ECG heart rate values paired with overlapping ten-minute vessel windows, also advanced in one-minute steps. Within each recording, heart rate was correlated separately with each vessel feature during the early period (< 60 minutes), late period (>=60 minutes), and full recording. The resulting correlation coefficients were then summarized across mice, with the mouse retained as the unit of replication.
+The primary analysis used quality-filtered one-minute ECG heart rate values paired with overlapping ten-minute vessel windows advanced in one-minute steps. Within each recording, Spearman correlations were calculated separately between heart rate and each vessel feature during the early period (before 60 minutes), late period (60 minutes or later), and full recording. The resulting correlation coefficients were summarized across mice, with the mouse retained as the unit of replication.
 
-The heart rate was computed from a ECG processing pipeline in which a machine learning model was trained to identify R-peaks with a confidence value between 0 and 1. The R-peaks were then used to compute the heart rate. We experimented two different methods for post-processing the R-peaks and their assocaited confidence value. They differ in time-bin duration and in how low-quality periods or recordings were identified and handled. Since these two methods only differ in the prost-processing and thus not independent from each other, we also had a third estimate that was obtained from the cardiac-frequency peak in the vessel diameter spectrum and provided a cross-modal comparison.
+Heart rate was computed from an ECG-processing pipeline in which a machine-learning model identified R peaks and assigned each peak a confidence value between 0 and 1. We evaluated two methods for post-processing the same R peaks and confidence values. These methods differed in time-bin duration and in how low-quality periods or recordings were handled, but they were not independent measurements. A third estimate obtained from the cardiac-frequency peak in the vessel diameter spectrum provided a cross-modal comparison.
 
 ### Results
 
-The overlapping-window analyses produced a recurring exploratory negative association between heart rate and slow vasomotion amplitude: mice tended to show smaller slow vessel oscillations when heart rate was higher. This association reached nominal significance in the early and late periods using Pearson correlation in the broader quality-qualified cohort and in the early period using Spearman correlation in the more stringently curated cohort. However, it was not consistently significant across all windows, correlation measures, or cohort definitions. Slow vasomotion power and cardiac-frequency pulsation amplitude did not show a stable relationship with heart rate.
+The sliding-window Spearman analysis produced an exploratory negative association between heart rate and slow vasomotion amplitude: mice generally tended to show smaller slow vessel oscillations when heart rate was higher. In the curated five-mouse cohort, the Fisher-transformed group test reached nominal significance during the early period (mean correlation approximately -0.40, p=0.032), while the overall result approached but did not reach the conventional threshold (mean correlation approximately -0.33, p=0.053). The corresponding Wilcoxon tests did not reach p<0.05. Slow vasomotion power and cardiac-frequency pulsation amplitude did not show stable group-level relationships with heart rate. Thus, the negative relationship with slow vasomotion amplitude should be treated as an exploratory signal rather than a definitive group effect.
 
 The three heart rate representations generally followed similar temporal patterns. In particular, the two ECG summaries agreed strongly despite their different binning and quality-handling rules, and both showed broad agreement with the vessel-derived cardiac frequency. These comparisons support the technical reliability of the heart rate measurement, but they do not by themselves demonstrate biological coupling between heart rate and vessel dynamics.
 
 ## Heart Rate Estimation and Quality Control
 
-Three heart rate estimates were compared for quality control: a quality-filtered one-minute ECG estimate, an earlier ten-minute ECG estimate, and a cardiac-frequency estimate derived from vessel diameter. The purpose was to corroborate the overall heart rate trajectory, evaluate the consequences of different ECG quality-control choices, and identify recordings in which heart rate was uncertain. Only the vessel-derived estimate came from a separate measurement modality.
+Three heart rate estimates were compared for quality control: the quality-filtered one-minute ECG estimate used in the primary correlation analysis, an earlier ten-minute ECG estimate, and a cardiac-frequency estimate derived from vessel diameter. The purpose was to corroborate the overall heart rate trajectory, evaluate the consequences of different ECG quality-control choices, and identify recordings in which heart rate was uncertain. Only the vessel-derived estimate came from a separate measurement modality.
 
 ### Quality-Filtered One-Minute ECG Heart Rate
 
@@ -28,7 +28,7 @@ The first estimate was calculated directly from the ECG. Heart rate was calculat
 
 ECG quality was evaluated separately in each one-minute interval. A minute was rejected when at least half of its candidate R peaks had low confidence. For accepted minutes, the median valid heart rate was retained. Rejected minutes remained missing and were not filled by interpolation or extrapolation. Recordings with extensive missing coverage could then be excluded from the correlation analysis rather than having their poor-quality periods reconstructed.
 
-This more conservative representation was used in the overlapping-window analysis because it retained one-minute temporal sampling while preventing low-confidence intervals from contributing artificial heart rate values.
+This more conservative representation was the only heart rate estimate used in the primary sliding-window correlation analysis. It retained one-minute temporal sampling while preventing low-confidence intervals from contributing artificial heart rate values.
 
 ### Ten-Minute ECG Heart Rate
 
@@ -60,10 +60,11 @@ Three frequency-based vessel features were emphasized:
 
 ## Time-Window Definitions
 
-The analysis summarized vessel features in ten-minute windows advanced in one-minute steps. These windows began 14 minutes after the start of the recording. Within each window, slow vasomotion amplitude, slow vasomotion power, and cardiac-frequency pulsation amplitude were computed and paired with heart rate.
+The analysis summarized vessel features in ten-minute windows advanced in one-minute steps, beginning at recording time zero. Within each window, slow vasomotion amplitude, slow vasomotion power, and cardiac-frequency pulsation amplitude were computed and paired with heart rate.
+
 The ten-minute window provided more data for estimating low-frequency vessel activity, particularly spectral power in the slow vasomotion band. The resulting windows overlapped substantially, producing a smoothly sampled description of how vessel dynamics changed over time.
 
-In the implemented overlap analysis, each ten-minute vessel window was paired with the quality-filtered one-minute ECG heart rate value at the start of that window. Only windows that passed the quality check for both measurements were included in a correlation. Because this pairing uses the heart rate at the window start rather than the average heart rate across the entire ten-minute vessel window, it should be described explicitly when the analysis is reported.
+Each ten-minute vessel window was paired with the quality-filtered one-minute ECG heart rate value at the start of that window. Correlations used only matched observations with finite heart rate and vessel-feature values. Because this pairing uses heart rate at the window start rather than heart rate averaged across the full ten-minute vessel window, it should be described explicitly when the analysis is reported.
 
 Correlations were evaluated over three recording periods:
 
@@ -77,9 +78,7 @@ The early and late divisions were used to test whether heart rate-vessel relatio
 
 For each mouse, heart rate was correlated separately with each vessel feature across the matched time windows. Missing or rejected observations were removed pairwise, so a correlation used only time windows in which both heart rate and the vessel feature were available.
 
-Spearman rank correlation was used as the main correlation measure. This approach tests whether heart rate and a vessel feature changed together in a consistent monotonic direction without requiring their relationship to be linear or the measurements to be normally distributed. It is also less sensitive than Pearson correlation to extreme values that may remain after physiological signal processing.
-
-Pearson correlations were also calculated in the overlapping-window analysis as a complementary assessment of linear association. Comparisons between Pearson and Spearman results helped determine whether any apparent relationship was broadly consistent or depended strongly on the assumed form of the association.
+Spearman rank correlation was used throughout the primary analysis. This approach tests whether heart rate and a vessel feature changed together in a consistent monotonic direction without requiring their relationship to be linear or the measurements to be normally distributed. It is also less sensitive to extreme values that may remain after physiological signal processing.
 
 The analyses produced one correlation coefficient for each mouse, vessel feature, and recording period. A positive coefficient indicated that the vessel feature tended to increase as heart rate increased. A negative coefficient indicated that the vessel feature tended to decrease as heart rate increased. The magnitude of the coefficient described the strength of the within-recording association.
 
@@ -99,30 +98,32 @@ Group summary plots show one point per mouse, a group mean correlation, a 95% co
 
 The current analyses tested several vessel features across early, late, and overall periods. The resulting probability values were not adjusted for the number of comparisons. The correlation findings should therefore be described as exploratory unless a multiple-comparison strategy is selected before the final manuscript analysis.
 
-## Planned Plots
+## Comparison With the Older Non-Sliding Analysis
 
-### Main-Text Plots
+An earlier analysis used non-overlapping ten-minute bins and the older ten-minute ECG heart rate estimate. This analysis was not directly equivalent to the primary sliding-window analysis because it used a different heart rate summary, a larger cohort, and substantially fewer observations per recording.
 
-1. **Analysis workflow schematic.** A compact diagram showing ECG R-peak detection, quality-filtered heart rate estimation, vessel detrending, separation into slow vasomotion and cardiac-frequency features, temporal window matching, within-mouse correlation, and group-level summary.
+Nevertheless, its broad conclusion was similar. None of the three vessel features showed a statistically significant group-level Spearman correlation with heart rate during the early, late, or overall period. The closest result was a negative late-period association between heart rate and slow vasomotion amplitude (mean correlation approximately -0.32; Fisher-transformed group test p=0.064; Wilcoxon p=0.064). This is directionally consistent with the negative slow-vasomotion-amplitude relationship observed in the sliding analysis, but it did not cross the conventional significance threshold. The other vessel features showed no stable association in either analysis.
 
-2. **Heart rate quality-control comparison.** Representative time-course overlays of the quality-filtered one-minute ECG heart rate, the related ten-minute ECG summary, and the vessel-derived cardiac-frequency estimate. A small group-level agreement panel could accompany the example recording to show that the calculations generally tracked the same physiological quantity while making clear that the two ECG summaries share the same underlying peak-quality pipeline.
+## Figures
 
-3. **Representative within-mouse correlation plots.** Scatter plots from one high-quality recording showing heart rate against slow vasomotion amplitude, slow vasomotion power, and cardiac-frequency pulsation amplitude. Early and late observations would be distinguished by color, with a monotonic trend line added for visualization.
+**Figure 1. Representative heart rate quality-control comparison.** The quality-filtered one-minute ECG estimate, related ten-minute ECG estimate, and vessel-derived cardiac frequency are overlaid for an example recording. The two ECG estimates share the same underlying R-peak confidence pipeline; the vessel-derived estimate provides the cross-modal comparison.
 
-4. **Primary group-level correlation summary.** A dot-and-interval plot for the curated overlapping-window Spearman analysis. Each point would represent one mouse, organized by vessel feature and by early, late, and overall recording period. The plot would include the group estimate, 95% confidence interval, and zero-correlation reference line.
+![Representative comparison of three heart rate estimates](writeup_figures/hr_validation_example_F154.png)
 
-### Supplementary Plots
+**Figure 2. Representative within-mouse sliding-window correlations.** Quality-filtered one-minute ECG heart rate is plotted against each of the three features calculated from overlapping ten-minute vessel windows. Early and late observations are shown separately.
 
-5. **Analysis sensitivity comparison.** Side-by-side group summaries comparing Pearson and Spearman correlations and the broader versus curated recording sets. This would show which conclusions are stable across reasonable analysis choices.
+![Representative sliding-window Spearman correlations](writeup_figures/sliding_spearman_example_F154.png)
 
-6. **Recording-level correlation matrix.** A heat map showing the direction and magnitude of the correlation for every mouse, vessel feature, and recording period. This would make between-mouse heterogeneity visible without pooling the underlying time points.
+**Figure 3. Primary sliding-window group summary.** Each point represents one mouse's Spearman correlation. Solid red lines show the Fisher-transformed group mean after conversion back to correlation units, dotted red lines show the 95% confidence interval, and the dashed black line marks zero correlation.
 
-7. **Data coverage and quality-control summary.** A plot showing the proportion of valid heart rate observations in each recording and indicating which recordings were retained or excluded from the curated analysis. This would make the quality-control process transparent.
+![Across-mouse sliding-window Spearman summary](writeup_figures/sliding_spearman_group_summary.png)
 
-## Points to Resolve Before Final Manuscript Use
+**Supplementary Figure 1. Older non-sliding ten-minute analysis.** This analysis used the older ten-minute ECG heart rate estimate. It showed no significant group-level correlation for any of the three vessel features, although the late-period slow-vasomotion-amplitude result showed a similar negative direction to the primary sliding analysis.
 
-The main remaining methodological decision is how heart rate should be paired with the ten-minute vessel windows. The current implementation uses the quality-filtered heart rate at the start of each vessel window. Averaging or taking the median heart rate over the same ten-minute interval would provide closer temporal matching and may be preferable for a final manuscript analysis.
+![Across-mouse non-sliding Spearman summary](writeup_figures/non_sliding_legacy_spearman_group_summary.png)
 
-The role of the curated five-recording cohort should also be stated clearly. A defensible presentation would treat the broader analysis as the primary description of the available recordings and the curated high-agreement cohort as a quality-focused sensitivity analysis, unless the exclusion criteria can be formalized independently of the observed correlation results.
+## Scope and Interpretation
 
-Finally, the project team should decide whether the manuscript will designate one vessel feature and one recording period as the primary comparison or apply a correction across all feature-by-period tests. Until that decision is made, the group-level probability values should be interpreted as exploratory.
+This write-up presents the current sliding-window implementation: quality-filtered one-minute ECG heart rate at each window start, overlapping ten-minute vessel windows advanced in one-minute steps, and Spearman correlation. Alternative temporal matching and Pearson correlation are outside the present scope.
+
+The displayed group analysis contains the five recordings with the clearest agreement among heart rate estimates. The findings therefore describe this quality-curated subgroup rather than the full set of dex40 recordings. In addition, probability values were not adjusted across the three vessel features and three recording periods. For these reasons, the negative relationship between heart rate and slow vasomotion amplitude should remain explicitly labeled as exploratory.
