@@ -2,6 +2,16 @@
 
 ## 2026-06-23
 
+### All-Recording Sensitivity Write-Up
+
+- Added the sliding-window sensitivity result that removes the heart-rate-agreement exclusion while retaining the filtered-ECG coverage requirement.
+- Regenerated the quality-curated sliding summary plot with descriptive vessel-feature labels and added the broader sensitivity summary plot for the write-up.
+- Moved interpretation notes into the Results text next to the figures they qualify and removed Wilcoxon reporting from the manuscript prose.
+- Model: Codex, GPT-5.
+- Effort: standard interactive editing.
+- Token budget: not specified.
+- Verification: ran MATLAB batch generation for the curated and all-recording overlap Spearman summaries and visually inspected both updated write-up figures.
+
 ### Figure Hierarchy Revision
 
 - Moved the across-mouse sliding-window Spearman summary into the Results section as the sole main figure.

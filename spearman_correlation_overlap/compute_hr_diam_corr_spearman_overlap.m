@@ -2,7 +2,23 @@
 
 project_root = fileparts(fileparts(mfilename('fullpath')));
 data_folder = fullfile(project_root, 'data');
-output_folder = fullfile(project_root, 'spearman_correlation_overlap');
+if ~exist('overlap_analysis_mode', 'var')
+    overlap_analysis_mode = "curated";
+else
+    overlap_analysis_mode = string(overlap_analysis_mode);
+end
+
+switch overlap_analysis_mode
+    case "curated"
+        output_folder = fullfile(project_root, 'spearman_correlation_overlap');
+        manual_excluded_mouse_ids = ["F168", "F169", "M163", "M166", "M167"];
+    case "all_subjects"
+        output_folder = fullfile(project_root, 'spearman_correlation_overlap_all_subjects');
+        manual_excluded_mouse_ids = strings(0, 1);
+    otherwise
+        error('Unknown overlap_analysis_mode: %s', overlap_analysis_mode);
+end
+
 if ~exist(output_folder, 'dir')
     mkdir(output_folder);
 end
@@ -12,7 +28,6 @@ vessel_vars = ["amp_svm", "bp_svm", "amp_c"];
 window_names = ["Early", "Late", "Overall"];
 cutoff_min = 60;
 hr_nan_exclusion_threshold = 0.50;
-manual_excluded_mouse_ids = ["F168", "F169", "M163", "M166", "M167"];
 
 excel_file = fullfile(output_folder, 'hr_amp_corr_overlap_spearman_results.xlsx');
 by_mouse_csv = fullfile(output_folder, 'hr_amp_corr_overlap_spearman_by_mouse.csv');

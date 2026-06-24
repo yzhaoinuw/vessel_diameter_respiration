@@ -1,7 +1,23 @@
 %% Plot Fisher z t-test summaries for overlap Spearman correlations
 
 project_root = fileparts(fileparts(mfilename('fullpath')));
-output_folder = fullfile(project_root, 'spearman_correlation_overlap');
+if ~exist('overlap_analysis_mode', 'var')
+    overlap_analysis_mode = "curated";
+else
+    overlap_analysis_mode = string(overlap_analysis_mode);
+end
+
+switch overlap_analysis_mode
+    case "curated"
+        output_folder = fullfile(project_root, 'spearman_correlation_overlap');
+        analysis_label = "quality-curated recordings";
+    case "all_subjects"
+        output_folder = fullfile(project_root, 'spearman_correlation_overlap_all_subjects');
+        analysis_label = "all recordings";
+    otherwise
+        error('Unknown overlap_analysis_mode: %s', overlap_analysis_mode);
+end
+
 fig_folder = fullfile(output_folder, 'figures', 'ttest_summary');
 if ~exist(fig_folder, 'dir')
     mkdir(fig_folder);
@@ -60,7 +76,7 @@ for v = 1:numel(vessel_vars)
             plot([0.5, numel(r_values) + 0.5], [ci_high ci_high], ':', ...
                 'Color', [0.85 0.20 0.20], 'LineWidth', 1.2);
 
-            title_handle = title(sprintf('%s | %s\nT-test p=%.3g, mean rho=%.3f', ...
+            title_handle = title(sprintf('%s | %s\nFisher p=%.3g, mean rho=%.3f', ...
                 vessel_label(vessel_var), window_name, p_t, mean_r), ...
                 'Interpreter', 'none', 'FontSize', 10);
         else
@@ -84,7 +100,7 @@ for v = 1:numel(vessel_vars)
     end
 end
 
-title_handle = sgtitle('Across-mouse overlap Spearman correlations with Fisher z t-test summary', ...
+title_handle = sgtitle(sprintf('Sliding-window Spearman correlations (%s)', analysis_label), ...
     'Interpreter', 'none', 'FontSize', 12);
 title_handle.Color = 'k';
 
@@ -97,11 +113,11 @@ fprintf('Saved %s\n', out_file);
 function label = vessel_label(vessel_var)
     switch string(vessel_var)
         case "amp_svm"
-            label = "amp\_svm";
+            label = "Slow vasomotion amplitude";
         case "bp_svm"
-            label = "bp\_svm";
+            label = "Slow vasomotion power";
         case "amp_c"
-            label = "amp\_c";
+            label = "Cardiac pulsation amplitude";
         otherwise
             label = char(string(vessel_var));
     end

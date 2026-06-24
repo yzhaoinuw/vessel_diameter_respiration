@@ -1,7 +1,21 @@
 %% Run Fisher z one-sample t-tests on overlap Spearman correlations
 
 project_root = fileparts(fileparts(mfilename('fullpath')));
-output_folder = fullfile(project_root, 'spearman_correlation_overlap');
+if ~exist('overlap_analysis_mode', 'var')
+    overlap_analysis_mode = "curated";
+else
+    overlap_analysis_mode = string(overlap_analysis_mode);
+end
+
+switch overlap_analysis_mode
+    case "curated"
+        output_folder = fullfile(project_root, 'spearman_correlation_overlap');
+    case "all_subjects"
+        output_folder = fullfile(project_root, 'spearman_correlation_overlap_all_subjects');
+    otherwise
+        error('Unknown overlap_analysis_mode: %s', overlap_analysis_mode);
+end
+
 by_mouse_csv = fullfile(output_folder, 'hr_amp_corr_overlap_spearman_by_mouse.csv');
 excel_file = fullfile(output_folder, 'hr_amp_corr_overlap_spearman_results.xlsx');
 ttest_csv = fullfile(output_folder, 'hr_amp_corr_overlap_spearman_ttest_summary.csv');

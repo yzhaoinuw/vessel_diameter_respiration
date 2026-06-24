@@ -8,19 +8,27 @@ The aim of the analysis was to determine whether changes in heart rate were asso
 
 ### Analysis
 
-The primary analysis used quality-filtered one-minute ECG heart rate values paired with overlapping ten-minute vessel windows advanced in one-minute steps. Within each recording, Spearman correlations were calculated separately between heart rate and each vessel feature during the early period (before 60 minutes), late period (60 minutes or later), and full recording. The resulting correlation coefficients were summarized across mice, with the mouse retained as the unit of replication.
+The primary analysis used quality-filtered one-minute ECG heart rate values paired with overlapping ten-minute vessel windows advanced in one-minute steps. Within each recording, Spearman correlations were calculated separately between heart rate and each vessel feature during the early period (before 60 minutes), late period (60 minutes or later), and full recording. The resulting correlation coefficients were summarized across mice, with the mouse retained as the unit of replication. The same analysis was also repeated without excluding recordings solely because the heart rate estimates disagreed with one another, while still requiring adequate coverage from the quality-filtered ECG heart rate series.
 
 Heart rate was computed from an ECG-processing pipeline in which a machine-learning model identified R peaks and assigned each peak a confidence value between 0 and 1. We evaluated two methods for post-processing the same R peaks and confidence values. These methods differed in time-bin duration and in how low-quality periods or recordings were handled, but they were not independent measurements. A third estimate obtained from the cardiac-frequency peak in the vessel diameter spectrum provided a cross-modal comparison.
 
 ### Results
 
-The sliding-window Spearman analysis produced an exploratory negative association between heart rate and slow vasomotion amplitude: mice generally tended to show smaller slow vessel oscillations when heart rate was higher. In the curated five-mouse cohort, the Fisher-transformed group test reached nominal significance during the early period (mean correlation approximately -0.40, p=0.032), while the overall result approached but did not reach the conventional threshold (mean correlation approximately -0.33, p=0.053). The corresponding Wilcoxon tests did not reach p<0.05. Slow vasomotion power and cardiac-frequency pulsation amplitude did not show stable group-level relationships with heart rate. Thus, the negative relationship with slow vasomotion amplitude should be treated as an exploratory signal rather than a definitive group effect.
+The sliding-window Spearman analysis produced an exploratory negative association between heart rate and slow vasomotion amplitude: mice generally tended to show smaller slow vessel oscillations when heart rate was higher. In the quality-curated five-recording cohort, the Fisher-transformed group test reached nominal significance during the early period (mean correlation approximately -0.40, p=0.032), while the overall result approached but did not reach the conventional threshold (mean correlation approximately -0.33, p=0.053). Slow vasomotion power and cardiac-frequency pulsation amplitude did not show stable group-level relationships with heart rate.
+
+Because this primary plot uses the recordings with the clearest agreement among heart rate estimates, it should be interpreted as a quality-curated result rather than the only view of the data. In addition, the probability values were not adjusted across the three vessel features and three recording periods. For these reasons, the negative relationship with slow vasomotion amplitude should remain explicitly labeled as exploratory.
 
 The three heart rate representations generally followed similar temporal patterns. In particular, the two ECG summaries agreed strongly despite their different binning and quality-handling rules, and both showed broad agreement with the vessel-derived cardiac frequency. These comparisons support the technical reliability of the heart rate measurement, but they do not by themselves demonstrate biological coupling between heart rate and vessel dynamics.
 
 **Figure 1. Primary sliding-window group summary.** Each point represents one mouse's Spearman correlation. Solid red lines show the Fisher-transformed group mean after conversion back to correlation units, dotted red lines show the 95% confidence interval, and the dashed black line marks zero correlation.
 
 ![Across-mouse sliding-window Spearman summary](writeup_figures/sliding_spearman_group_summary.png)
+
+As a sensitivity analysis, the same sliding-window correlation was repeated without excluding recordings solely because the heart rate estimates disagreed with one another. Recordings still needed adequate coverage from the quality-filtered one-minute ECG heart rate series; three recordings were therefore still excluded because more than half of their aligned heart rate observations were missing. This broader eight-recording analysis showed the same negative direction for slow vasomotion amplitude. The early-period association remained negative and nominally significant (mean correlation approximately -0.41, p=0.0015), the late-period result remained negative but did not cross p<0.05 (mean correlation approximately -0.34, p=0.060), and the overall association crossed p<0.05 (mean correlation approximately -0.26, p=0.039). The broader analysis did not introduce a consistent group-level relationship for slow vasomotion power or cardiac-frequency pulsation amplitude.
+
+**Figure 2. Sliding-window group summary without the heart-rate-agreement exclusion.** This plot uses the same analysis and display format as Figure 1 but includes recordings that were previously removed because the heart rate estimates disagreed, provided the quality-filtered ECG heart rate series still had adequate coverage.
+
+![Across-mouse sliding-window Spearman summary without heart-rate agreement exclusion](writeup_figures/sliding_spearman_all_recordings_group_summary.png)
 
 ## Heart Rate Estimation and Quality Control
 
@@ -90,13 +98,13 @@ The analyses produced one correlation coefficient for each mouse, vessel feature
 
 The quality-filtered overlap analysis required adequate ECG coverage. Recordings with extensive missing heart rate values could not provide a stable estimate of association and were excluded when more than half of the aligned heart rate observations were unavailable.
 
-The diagnostic comparison of heart rate representations also identified recordings with substantial disagreement among the estimates. Six recordings were excluded from the final curated Spearman overlap analysis on this basis, leaving five recordings with the clearest agreement among heart rate measurements. Because this exclusion was informed by diagnostic review, the curated analysis should be presented together with the broader, less restrictive analyses as a sensitivity comparison rather than as the only view of the data.
+The diagnostic comparison of heart rate representations also identified recordings with substantial disagreement among the estimates. Six recordings were excluded from the quality-curated Spearman overlap analysis on this basis, leaving five recordings with the clearest agreement among heart rate measurements. The broader sensitivity analysis removed this diagnostic exclusion and retained recordings whenever the quality-filtered ECG heart rate series had adequate coverage.
 
 ## Group-Level Statistical Analysis
 
 The mouse, rather than the individual time window, was used as the unit of inference. Time windows within a recording are repeated and strongly overlapping observations from the same animal; pooling them across animals would therefore overstate the effective sample size.
 
-For each vessel feature and recording period, the distribution of mouse-level correlation coefficients was evaluated in two complementary ways. A Wilcoxon signed-rank test assessed whether the median correlation across mice differed from zero without assuming a normally distributed set of coefficients. A one-sample test was also performed after applying the Fisher transformation to the correlation coefficients. The transformed values were tested against zero, and the group mean and confidence interval were converted back to the correlation scale for presentation.
+For each vessel feature and recording period, the distribution of mouse-level correlation coefficients was evaluated after applying the Fisher transformation to the correlation coefficients. The transformed values were tested against zero, and the group mean and confidence interval were converted back to the correlation scale for presentation.
 
 Group summary plots show one point per mouse, a group mean correlation, a 95% confidence interval, and a reference line at zero. This format displays both the average direction of the association and the degree of consistency or heterogeneity across animals.
 
@@ -106,7 +114,7 @@ The current analyses tested several vessel features across early, late, and over
 
 An earlier analysis used non-overlapping ten-minute bins and the older ten-minute ECG heart rate estimate. This analysis was not directly equivalent to the primary sliding-window analysis because it used a different heart rate summary, a larger cohort, and substantially fewer observations per recording.
 
-Nevertheless, its broad conclusion was similar. None of the three vessel features showed a statistically significant group-level Spearman correlation with heart rate during the early, late, or overall period. The closest result was a negative late-period association between heart rate and slow vasomotion amplitude (mean correlation approximately -0.32; Fisher-transformed group test p=0.064; Wilcoxon p=0.064). This is directionally consistent with the negative slow-vasomotion-amplitude relationship observed in the sliding analysis, but it did not cross the conventional significance threshold. The other vessel features showed no stable association in either analysis.
+Nevertheless, its broad conclusion was similar. None of the three vessel features showed a statistically significant group-level Spearman correlation with heart rate during the early, late, or overall period. The closest result was a negative late-period association between heart rate and slow vasomotion amplitude (mean correlation approximately -0.32; Fisher-transformed group test p=0.064). This is directionally consistent with the negative slow-vasomotion-amplitude relationship observed in the sliding analysis, but it did not cross the conventional significance threshold. The other vessel features showed no stable association in either analysis.
 
 ## Supplementary Figures
 
@@ -118,8 +126,3 @@ Nevertheless, its broad conclusion was similar. None of the three vessel feature
 
 ![Across-mouse non-sliding Spearman summary](writeup_figures/non_sliding_legacy_spearman_group_summary.png)
 
-## Scope and Interpretation
-
-This write-up presents the current sliding-window implementation: quality-filtered one-minute ECG heart rate at each window start, overlapping ten-minute vessel windows advanced in one-minute steps, and Spearman correlation. Alternative temporal matching and Pearson correlation are outside the present scope.
-
-The displayed group analysis contains the five recordings with the clearest agreement among heart rate estimates. The findings therefore describe this quality-curated subgroup rather than the full set of dex40 recordings. In addition, probability values were not adjusted across the three vessel features and three recording periods. For these reasons, the negative relationship between heart rate and slow vasomotion amplitude should remain explicitly labeled as exploratory.
