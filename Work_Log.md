@@ -1,5 +1,16 @@
 # Work Log
 
+## 2026-07-06
+
+### Multiple-Comparison Caveat Clarification
+
+- Expanded the Results caveat to explain that unadjusted probability values do not use a stricter threshold for multiple related feature-period tests.
+- Clarified why the caveat matters for interpreting nominally significant findings as exploratory.
+- Model: Codex, GPT-5.
+- Effort: standard interactive editing.
+- Token budget: not specified.
+- Verification: reviewed the Results paragraph diff and checked branch status before staging.
+
 ## 2026-06-23
 
 ### All-Recording Sensitivity Write-Up
