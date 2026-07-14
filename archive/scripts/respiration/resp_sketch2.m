@@ -47,11 +47,11 @@ for p = 1:3
     s = picks(p);
     t_start = good_sections(s).t_start;
     t_end   = good_sections(s).t_end;
-    
+
     % Show up to 5 seconds
     t_show_end = min(t_end, t_start + 5);
     mask = t_phys >= t_start & t_phys <= t_show_end;
-    
+
     subplot(3,1,p);
     plot(t_phys(mask), resp(mask), 'k', 'LineWidth', 0.8);
     ylabel('Resp');

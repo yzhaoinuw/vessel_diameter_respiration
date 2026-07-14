@@ -39,7 +39,7 @@ win_std_samp = round(win_std_sec * fs_ecg);
 resp_std     = movstd(resp_filt, win_std_samp);
 
 % Visualise - use this to tune the threshold
-figure('Name', 'Resp std distribution');
+figure('Name','Resp std distribution','Position',[50 550 500 350]);
 histogram(resp_std, 100, 'FaceColor', [0.27 0.51 0.71], 'EdgeColor', 'none');
 xlabel('Sliding-window std (a.u.)'); ylabel('Count');
 title('Respiration amplitude distribution - choose threshold');
@@ -73,7 +73,7 @@ fprintf('Breath peaks: %d total, %d in good regions\n', ...
 % 2d. Sanity check - breath rate distribution
 breath_rate_Hz = 1 ./ diff(t_phys(pk_good));
 
-figure('Name', 'Breath rate distribution');
+figure('Name','Breath rate distribution','Position',[570 550 500 350]);
 histogram(breath_rate_Hz, 50, 'FaceColor', [0.47 0.67 0.19], 'EdgeColor', 'none');
 xlabel('Breath rate (Hz)'); ylabel('Count');
 title('Instantaneous breathing rate (peak-to-peak)');
@@ -81,7 +81,7 @@ fprintf('Breath rate: median = %.1f Hz, IQR = [%.1f, %.1f] Hz\n', ...
         median(breath_rate_Hz), prctile(breath_rate_Hz, 25), prctile(breath_rate_Hz, 75));
 
 % 2e. Visual check - plot from camera start (where diam data exists)
-figure('Name', 'Resp peak detection check');
+figure('Name','Resp peak detection check','Position',[50 120 500 350]);
 t_plot_start = t_frames(1);        % start of vessel data
 t_plot_end   = t_plot_start + 10;  % 10 seconds
 idx_show = t_phys >= t_plot_start & t_phys <= t_plot_end;
@@ -144,8 +144,7 @@ eta_sem    = std(all_snippets, 0, 1) / sqrt(n_triggers);
 fprintf('Resp-triggered ETA: %d breath triggers used\n', n_triggers);
 
 %% 5. Plot
-figure('Position', [100 100 900 400]);
-
+figure('Position',[570 120 900 400]);
 % Left: individual traces + mean
 subplot(1,2,1);
 hold on;
@@ -187,7 +186,7 @@ end
 boot_upper = prctile(boot_means, 97.5, 1);
 boot_lower = prctile(boot_means, 2.5, 1);
 
-figure('Name', 'Bootstrap CI');
+figure('Name','Bootstrap CI','Position',[1100 120 500 400]);
 fill([t_win fliplr(t_win)], [boot_upper fliplr(boot_lower)], ...
      [0.7 0.85 1], 'EdgeColor', 'none'); hold on;
 plot(t_win, eta_mean, 'b', 'LineWidth', 2);
@@ -195,4 +194,126 @@ xline(0, 'r--', 'Insp. peak');
 xlabel('Time from inspiration peak (ms)');
 ylabel('Vessel diameter (% from baseline)');
 title(sprintf('ETA with bootstrap 95%% CI  (n = %d breaths)', n_triggers));
+hold off;
+
+%% 6. Cross-correlation: resp ↔ vessel diameter (respiratory band)
+%  Approach mirrors the RR↔vessel xcorr: iterate over good resp sections,
+%  z-score both signals per section, length-weighted mean, phase-rand null.
+
+% --- 6a. Bandpass vessel to respiratory band ---
+bp_low  = 1.0;
+bp_high = 4.0;
+[b_bp, a_bp] = butter(4, [bp_low bp_high] / (fs_cam/2), 'bandpass');
+diam_bp = filtfilt(b_bp, a_bp, diam_norm);
+filter_label = sprintf('Vessel BP %.1f–%.1f Hz', bp_low, bp_high);
+
+% --- 6b. Convert resp_long_mask to section structs (t_start / t_end) ---
+cc_runs = bwconncomp(resp_long_mask);
+resp_sections = struct('t_start', {}, 't_end', {});
+for r = 1:cc_runs.NumObjects
+    idx = cc_runs.PixelIdxList{r};
+    resp_sections(r).t_start = t_phys(idx(1));
+    resp_sections(r).t_end   = t_phys(idx(end));
+end
+
+% --- 6c. Cross-correlate within each good section ---
+max_lag_sec     = 1.0;   % +/- 1 s covers a full breath cycle
+min_section_dur = 3 * max_lag_sec;
+max_lag_samp    = round(max_lag_sec * fs_cam);
+lags_sec        = (-max_lag_samp:max_lag_samp) / fs_cam;
+
+all_xcorr        = [];
+section_weights  = [];
+resp_z_store     = {};
+diam_z_store     = {};
+
+for s = 1:numel(resp_sections)
+    t_start = resp_sections(s).t_start;
+    t_end   = resp_sections(s).t_end;
+    if (t_end - t_start) < min_section_dur, continue; end
+
+    seg_mask = t_frames >= t_start & t_frames <= t_end;
+    if sum(seg_mask) < 10, continue; end
+
+    t_seg    = t_frames(seg_mask);
+    diam_seg = diam_bp(seg_mask);
+
+    % Interpolate resp_filt (ECG rate) to camera frame times
+    resp_seg = interp1(t_phys, resp_filt, t_seg, 'linear', NaN);
+    if any(isnan(resp_seg)), continue; end
+
+    resp_z = (resp_seg  - mean(resp_seg))  / std(resp_seg);
+    diam_z = (diam_seg  - mean(diam_seg))  / std(diam_seg);
+
+    [xc, ~] = xcorr(diam_z, resp_z, max_lag_samp, 'coeff');
+    all_xcorr       = [all_xcorr;       xc(:)'];
+    section_weights = [section_weights; numel(diam_seg)];
+    resp_z_store{end+1} = resp_z;
+    diam_z_store{end+1} = diam_z;
+end
+
+w          = section_weights / sum(section_weights);
+xcorr_mean = w' * all_xcorr;
+[~, peak_idx] = max(abs(xcorr_mean));
+peak_lag  = lags_sec(peak_idx);
+peak_corr = xcorr_mean(peak_idx);
+fprintf('Resp–vessel xcorr computed across %d sections\n', size(all_xcorr, 1));
+
+% --- 6d. Phase randomisation null (200 circular shifts) ---
+N_SHUF     = 200;
+n_sec      = numel(resp_z_store);
+null_peaks = zeros(N_SHUF, 1);
+
+for sh = 1:N_SHUF
+    shuf_xcorr = zeros(n_sec, numel(lags_sec));
+    for s = 1:n_sec
+        resp_z = resp_z_store{s};
+        diam_z = diam_z_store{s};
+        min_shift = round(fs_cam);
+        if numel(resp_z) <= 2 * min_shift, continue; end   % skip if too short
+        shift = randi([min_shift, numel(resp_z) - min_shift]);
+        resp_z_shuf = circshift(resp_z, shift);
+        [xc, ~] = xcorr(diam_z, resp_z_shuf, max_lag_samp, 'coeff');
+        shuf_xcorr(s,:) = xc(:)';
+    end
+    shuf_mean      = w' * shuf_xcorr;
+    null_peaks(sh) = max(abs(shuf_mean));
+end
+
+null_p95 = prctile(null_peaks, 95);
+null_p99 = prctile(null_peaks, 99);
+is_sig   = abs(peak_corr) > null_p95;
+fprintf('Observed peak: %.3f at %.2f s\n', peak_corr, peak_lag);
+fprintf('Null 95th pct: %.3f | 99th pct: %.3f | Significant: %s\n', ...
+        null_p95, null_p99, string(is_sig));
+
+% --- 6e. Plot ---
+figure('Position', [100 100 900 400]);
+
+subplot(1,2,1);
+hold on;
+plot(lags_sec, xcorr_mean, 'b', 'LineWidth', 1.5);
+yline( null_p95, 'r--', sprintf(' %.3f', null_p95),  'LineWidth', 1, 'LabelHorizontalAlignment', 'left');
+yline(-null_p95, 'r--', sprintf('%.3f', -null_p95), 'LineWidth', 1, 'LabelHorizontalAlignment', 'left');
+yline(0, 'k:');
+plot(peak_lag, peak_corr, 'ro', 'MarkerFaceColor', 'r', 'MarkerSize', 6);
+text(peak_lag, peak_corr, sprintf('  (%.2f s, %.3f)', peak_lag, peak_corr), ...
+     'Color', 'r', 'FontSize', 9, 'VerticalAlignment', 'bottom');
+ylim([-1 1]);
+xlabel('Lag (s)  [positive = diam lags resp]');
+ylabel('Cross-correlation');
+title(sprintf('Resp \\leftrightarrow %s', filter_label));
+hold off;
+
+subplot(1,2,2);
+hold on;
+for k = 1:size(all_xcorr, 1)
+    plot(lags_sec, all_xcorr(k,:), 'Color', [0.6 0.6 0.6 0.4]);
+end
+plot(lags_sec, xcorr_mean, 'b', 'LineWidth', 2);
+yline(0, 'k:');
+ylim([-1 1]);
+xlabel('Lag (s)  [positive = diam lags resp]');
+ylabel('Cross-correlation');
+title(sprintf('Individual sections + weighted mean | %s', filter_label));
 hold off;

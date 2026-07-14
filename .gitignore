@@ -1,8 +1,50 @@
-# Ignore everything
+# Raw data, generated results, and local artifacts are ignored by default.
 *
 
-# But not the .gitignore itself
+# Root governance and source documents.
 !.gitignore
+!.copier-answers.yml
+!AGENTS.md
+!README.md
+!project_overview.md
+!next_steps.md
+!work_log.md
+!correlation_analysis_writeup.md
 
-# Track .m files in the current directory only
-!*.m
+# Active root-level MATLAB entry points.
+!/*.m
+
+# Active MATLAB analysis packages; generated outputs below them stay ignored.
+!hr_hr_correlation/
+hr_hr_correlation/*
+!hr_hr_correlation/*.m
+
+!spearman_correlation_overlap/
+spearman_correlation_overlap/*
+!spearman_correlation_overlap/*.m
+
+!spearman_correlation_yue/
+spearman_correlation_yue/*
+!spearman_correlation_yue/*.m
+
+# Curated figures embedded by the authoritative write-up.
+!writeup_figures/
+writeup_figures/*
+!writeup_figures/*.png
+
+# Treaty work-log history.
+!work_log_archive/
+work_log_archive/*
+!work_log_archive/*.md
+
+# Historical source and documentation. Generated outputs within archived
+# workflows remain ignored; only scripts and Markdown records are tracked.
+!archive/
+archive/*
+!archive/README.md
+!archive/docs/
+archive/docs/*
+!archive/docs/*.md
+!archive/scripts/
+!archive/scripts/**/
+!archive/scripts/**/*.m

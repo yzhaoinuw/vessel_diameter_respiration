@@ -164,10 +164,8 @@ fprintf('Mean beat spacing ≈ %.1f ms\n', 1000*mean(diff(mean_time_offsets)));
 %  9. DIAGNOSTIC PLOTS
 %  ========================================================================
 
-figure('Position', [100 100 900 700], 'Color', 'w');
-
-% ---- Panel 1: example good section (resp + HR + peak markers) -----------
-ax1 = subplot(2,1,1);
+% ---- Figure 1: example good section (resp + HR + peak markers) ----------
+figure('Position', [100 100 900 350], 'Color', 'w');
 
 % Pick the longest section for the example
 [~, best] = max(good_sections.duration);
@@ -199,16 +197,30 @@ for k = 1:numel(peaks_in_win)
     xline(peaks_in_win(k), '--', 'Color', [0.4 0.4 0.4], 'Alpha', 0.5);
 end
 hold off;
-
 xlabel('Time (s)');
-title(sprintf('Example good section (%.1f s)', ex_end - ex_start));
+title(sprintf('Test 02: Example good section (%.1f s)', ex_end - ex_start));
 xlim([ex_start ex_end]);
 
-% ---- Panel 2: ETA  (mean ± SEM, time axis from beat offsets) -------------
-ax2 = subplot(2,1,2);
+% ---- Figure 2: ETA — individual traces (left) and mean ± SEM (right) ---
+figure('Position', [100 500 1100 350], 'Color', 'w');
 
-t_eta = mean_time_offsets * 1000;              % convert to ms for readability
+t_eta = mean_time_offsets * 1000;
 
+% Left: 50 random individual traces + mean
+subplot(1,2,1);
+trace_idx = randperm(n_events, min(50, n_events));
+plot(t_eta, hr_snippets(trace_idx, :)', 'Color', [0.6 0.75 0.9 0.3], 'LineWidth', 0.5);
+hold on;
+plot(t_eta, eta_mean, '-', 'Color', [0.15 0.3 0.7], 'LineWidth', 2);
+xline(0, '--k', 'LineWidth', 1);
+hold off;
+xlabel('Time from inspiration peak (ms)');
+ylabel('Heart rate (bpm)');
+title(sprintf('Individual traces (n=50 of %d)', n_events));
+xlim([t_eta(1)*1.05  t_eta(end)*1.05]);
+
+% Right: mean ± SEM
+subplot(1,2,2);
 fill([t_eta fliplr(t_eta)], ...
      [eta_mean + eta_sem, fliplr(eta_mean - eta_sem)], ...
      [0.8 0.85 1], 'EdgeColor', 'none', 'FaceAlpha', 0.6);
@@ -217,13 +229,39 @@ plot(t_eta, eta_mean, '.-', 'Color', [0.15 0.3 0.7], ...
     'LineWidth', 1.8, 'MarkerSize', 14);
 xline(0, '--k', 'LineWidth', 1);
 hold off;
-
 xlabel('Time from inspiration peak (ms)');
 ylabel('Heart rate (bpm)');
-title(sprintf('Resp → HR ETA  (n = %d triggers, mean ± SEM)', n_events));
+title(sprintf('Mean ± SEM  (n = %d triggers)', n_events));
 xlim([t_eta(1)*1.05  t_eta(end)*1.05]);
 
-sgtitle('Test 02: Respiratory Sinus Arrhythmia');
+sgtitle('Test 02: Resp → HR ETA');
+
+%%
+% ---- Figure 3: Bootstrap 95% CI on ETA shape ----------------------------
+figure('Position', [100 900 900 350], 'Color', 'w');
+
+n_boot = 2000;
+rng(42);
+boot_means = zeros(n_boot, n_beat_win);
+for b = 1:n_boot
+    idx = randi(n_events, n_events, 1);
+    boot_means(b, :) = mean(hr_snippets(idx, :), 1);
+end
+ci_lo = prctile(boot_means, 2.5, 1);
+ci_hi = prctile(boot_means, 97.5, 1);
+
+fill([t_eta fliplr(t_eta)], [ci_hi fliplr(ci_lo)], ...
+     [0.8 0.85 1], 'EdgeColor', 'none', 'FaceAlpha', 0.6);
+hold on;
+plot(t_eta, eta_mean, '.-', 'Color', [0.15 0.3 0.7], ...
+    'LineWidth', 1.8, 'MarkerSize', 14);
+xline(0, '--k', 'LineWidth', 1);
+hold off;
+xlabel('Time from inspiration peak (ms)');
+ylabel('Heart rate (bpm)');
+title(sprintf('Test 02: Resp → HR ETA — bootstrap 95%% CI  (n = %d triggers, %d resamples)', ...
+    n_events, n_boot));
+xlim([t_eta(1)*1.05  t_eta(end)*1.05]);
 
 %% ---- Figure 2: amplitude-stratified ETA --------------------------------
 figure('Position', [100 100 700 400], 'Color', 'w');

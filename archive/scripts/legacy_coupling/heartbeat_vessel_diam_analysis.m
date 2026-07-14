@@ -31,7 +31,7 @@ for s = 1:n_sections
 
     t_start = good_sections(s).t_start;
     t_end   = good_sections(s).t_end;
-    
+
     % Single mask — both signals now share t_frames
     mask = t_frames >= t_start & t_frames <= t_end;
 
@@ -123,7 +123,7 @@ boot_lower = prctile(boot_means, 2.5, 1);
 
 figure('Position', [100 100 600 400]);
 fill([t_win fliplr(t_win)], [boot_upper fliplr(boot_lower)], ...
-     [0.7 0.85 1], 'EdgeColor', 'none', 'DisplayName', '95% bootstrap CI'); 
+     [0.7 0.85 1], 'EdgeColor', 'none', 'DisplayName', '95% bootstrap CI');
 hold on;
 plot(t_win, eta_mean, 'b', 'LineWidth', 2, 'DisplayName', 'Mean');
 xline(0, 'r--', 'R-peak');
@@ -135,84 +135,103 @@ hold off;
 
 %% Phase 3b: Cross-correlation — RR intervals ↔ Vessel Diameter
 %% ============================================================
-
 % Step 1: Compute RR interval series
-rr_intervals = diff(t_rpeaks) * 1000;       % ms
-t_rr = t_rpeaks(1:end-1) + diff(t_rpeaks)/2; % midpoint timestamps
+rr_intervals = diff(t_rpeaks) * 1000;
+t_rr = t_rpeaks(1:end-1) + diff(t_rpeaks)/2;
 
 % Step 2: Lowpass vessel diameter to remove cardiac pulsation
 % Keep only fluctuations below ~2 Hz (vasomotion + respiratory range)
 
-fc_slow = 0.3;  % Hz — change this to explore
+fc_slow = 2;  % Hz — change this to explore
 [b_lp, a_lp] = butter(4, fc_slow / (fs_cam/2), 'low');
 diam_slow = filtfilt(b_lp, a_lp, diam_norm);
 filter_label = sprintf('Vessel LP < %.2f Hz', fc_slow);
 
-
 % Step 3: Cross-correlate within each good section
-max_lag_sec = 5;                             % ±5 seconds
-min_section_dur = 3 * max_lag_sec;           % need at least 15 seconds
-
+max_lag_sec = 5;
+min_section_dur = 3 * max_lag_sec;
 max_lag_samp = round(max_lag_sec * fs_cam);
 lags_sec = (-max_lag_samp:max_lag_samp) / fs_cam;
 
-all_xcorr = [];
+all_xcorr      = [];
 section_weights = [];
+rr_z_store     = {};   % store for shuffle test
+diam_z_store   = {};
 
 for s = 1:n_sections
     t_start = good_sections(s).t_start;
     t_end   = good_sections(s).t_end;
-    dur = t_end - t_start;
+    if (t_end - t_start) < min_section_dur, continue; end
 
-    % Skip short sections — need enough data for meaningful xcorr
-    if dur < min_section_dur, continue; end
-
-    % RR intervals in this section — interpolate to camera grid
     rr_mask = t_rr >= t_start & t_rr <= t_end;
     if sum(rr_mask) < 10, continue; end
 
     seg_mask = t_frames >= t_start & t_frames <= t_end;
-    t_seg = t_frames(seg_mask);
+    t_seg    = t_frames(seg_mask);
 
-    rr_interp = interp1(t_rr(rr_mask), rr_intervals(rr_mask), ...
-                         t_seg, 'linear', 'extrap');
+    rr_interp = interp1(t_rr(rr_mask), rr_intervals(rr_mask), t_seg, 'linear', 'extrap');
+    diam_seg  = diam_slow(seg_mask);
 
-    % Vessel diameter (slow) for this section
-    diam_seg = diam_slow(seg_mask);
-
-    % Normalize both to zero mean, unit variance
     rr_z   = (rr_interp - mean(rr_interp)) / std(rr_interp);
-    diam_z = (diam_seg - mean(diam_seg)) / std(diam_seg);
+    diam_z = (diam_seg  - mean(diam_seg))  / std(diam_seg);
 
-    % Cross-correlation (normalized)
-    [xc, lags] = xcorr(rr_z, diam_z, max_lag_samp, 'coeff');
-
-    all_xcorr = [all_xcorr; xc(:)'];
+    [xc, ~] = xcorr(rr_z, diam_z, max_lag_samp, 'coeff');
+    all_xcorr       = [all_xcorr; xc(:)'];
     section_weights = [section_weights; numel(diam_seg)];
+    rr_z_store{end+1}   = rr_z;
+    diam_z_store{end+1} = diam_z;
 end
 
-figure('Position', [100 100 900 400]);
-durs = [good_sections.t_end] - [good_sections.t_start];
-fprintf('Section durations: min %.1f, median %.1f, max %.1f s\n', ...
-         min(durs), median(durs), max(durs));
-histogram(durs, 30);
-xlabel('Duration (s)');
-ylabel('Count');
-
-% Weighted average across sections (longer sections contribute more)
-w = section_weights / sum(section_weights);
+w          = section_weights / sum(section_weights);
 xcorr_mean = w' * all_xcorr;
-
+[~, peak_idx] = max(abs(xcorr_mean));
+peak_lag  = lags_sec(peak_idx);
+peak_corr = xcorr_mean(peak_idx);
 fprintf('Cross-correlation computed across %d sections\n', size(all_xcorr, 1));
 
-%% Step 4: Plot
+% Step 4: Phase randomization null distribution (200 shuffles)
+N_SHUF     = 200;
+n_sec      = numel(rr_z_store);
+null_peaks = zeros(N_SHUF, 1);
+
+for sh = 1:N_SHUF
+    shuf_xcorr = zeros(n_sec, numel(lags_sec));
+    for s = 1:n_sec
+        rr_z   = rr_z_store{s};
+        diam_z = diam_z_store{s};
+        % Circular shift by random offset — at least 1 s worth of samples
+        min_shift = round(fs_cam);
+        shift = randi([min_shift, numel(rr_z) - min_shift]);
+        rr_z_shuf = circshift(rr_z, shift);
+        [xc, ~] = xcorr(rr_z_shuf, diam_z, max_lag_samp, 'coeff');
+        shuf_xcorr(s, :) = xc(:)';
+    end
+    shuf_mean = w' * shuf_xcorr;
+    null_peaks(sh) = max(abs(shuf_mean));
+end
+
+null_p95  = prctile(null_peaks, 95);
+null_p99  = prctile(null_peaks, 99);
+is_sig    = abs(peak_corr) > null_p95;
+fprintf('Observed peak: %.3f at %.2f s\n', peak_corr, peak_lag);
+fprintf('Null 95th pct: %.3f | 99th pct: %.3f | Significant: %s\n', ...
+        null_p95, null_p99, string(is_sig));
+
+%%
+% Step 5: Plot
 figure('Position', [100 100 900 400]);
 
 subplot(1,2,1);
 plot(lags_sec, xcorr_mean, 'b', 'LineWidth', 1.5);
 hold on;
-xline(0, 'r--');
+yline(null_p95,  'r--', '95%', 'LineWidth', 1);
+yline(-null_p95, 'r--',        'LineWidth', 1);
 yline(0, 'k:');
+yline( null_p95, 'r--', sprintf(' %.3f', null_p95),  'LineWidth', 1, 'LabelHorizontalAlignment', 'left');
+yline(-null_p95, 'r--', sprintf('%.3f', -null_p95), 'LineWidth', 1, 'LabelHorizontalAlignment', 'left');
+plot(peak_lag, peak_corr, 'ro', 'MarkerFaceColor', 'r', 'MarkerSize', 6);
+text(peak_lag, peak_corr, sprintf('  (%.2f s, %.3f)', peak_lag, peak_corr), ...
+    'Color', 'r', 'FontSize', 9, 'VerticalAlignment', 'bottom');
 ylim([-1 1]);
 xlabel('Lag (s)  [positive = RR leads vessel]');
 ylabel('Cross-correlation');
@@ -225,11 +244,10 @@ for k = 1:size(all_xcorr, 1)
     plot(lags_sec, all_xcorr(k,:), 'Color', [0.6 0.6 0.6 0.4]);
 end
 plot(lags_sec, xcorr_mean, 'b', 'LineWidth', 2);
-xline(0, 'r--');
 yline(0, 'k:');
+
 ylim([-1 1]);
 xlabel('Lag (s)  [positive = RR leads vessel]');
 ylabel('Cross-correlation');
 title(sprintf('Individual sections + weighted mean | %s', filter_label));
 hold off;
-

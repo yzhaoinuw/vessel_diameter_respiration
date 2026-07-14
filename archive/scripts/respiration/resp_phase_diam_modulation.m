@@ -121,8 +121,8 @@ for s = 1:n_sections
 
     % Drop any NaN frames within the section
     valid = ~isnan(ph) & ~isnan(am);
-    all_phase = [all_phase; ph(valid)];  
-    all_amp   = [all_amp;   am(valid)];  
+    all_phase = [all_phase; ph(valid)];
+    all_amp   = [all_amp;   am(valid)];
 end
 
 %% ── 8. Compute observed MI (Tort et al. 2010) ────────────────────────────
@@ -252,59 +252,62 @@ if p.verbose
 end
 
 %% ── 10. Plots ─────────────────────────────────────────────────────────────
+%% ── 10. Plots ─────────────────────────────────────────────────────────────
 if ~p.show_plots; return; end
 
-figure('Name', 'Test 3: Resp Phase → Vessel Cardiac Envelope PAC', ...
-       'Position', [100 80 1100 820]);
+% ── Figure 1 (audience): PAC result — mean cardiac envelope by resp phase ──
+figure('Name', 'Test 3: PAC Result', 'Position', [100 100 560 420]);
 
-% ── 10a. Mean cardiac envelope by respiratory phase ──
-subplot(2,2,1);
 bar(rad2deg(bin_centers), bin_amp, 'FaceColor', [0.27 0.60 0.85], 'EdgeColor', 'none');
 hold on;
 plot(rad2deg(bin_centers), bin_amp, 'k-o', 'LineWidth', 1.2, 'MarkerSize', 4, 'MarkerFaceColor', 'k');
+xline(0, '--', 'Color', [0.5 0.5 0.5], 'LineWidth', 1);
+xlim([-180 180]);
+xticks(-180:60:180);
 xlabel('Respiratory phase (°)');
 ylabel('Mean cardiac envelope (μm)');
-title(sprintf('PAC: resp phase → vessel cardiac amplitude\nMI = %.4f,  z = %.1f,  p = %.3f', ...
-    MI_obs, MI_zscore, MI_pval));
-xticks(-180:60:180);
-xline(0, '--', 'color', [0.5 0.5 0.5]);
-xlim([-180 180]);
+title(sprintf('Resp phase → vessel cardiac amplitude\nMI = %.4f,  z = %.2f,  p = %.3f  |  eq: z = %.2f,  p = %.3f', ...
+    MI_obs, MI_zscore, MI_pval, MI_eq_zscore, MI_eq_pval), 'FontSize', 10);
+box off;
 
-% ── 10b. Null distribution of MI ──
-subplot(2,2,2);
-histogram(MI_null, 40, 'FaceColor', [0.7 0.7 0.7], 'EdgeColor', 'none');
+% ── Figure 2 (audience): Permutation null distribution ──
+figure('Name', 'Test 3: Null Distribution', 'Position', [680 100 560 420]);
+
+histogram(MI_null, 40, 'FaceColor', [0.75 0.75 0.75], 'EdgeColor', 'none');
 hold on;
-xline(MI_obs, 'r-', 'LineWidth', 2);
-xline(MI_eq,  'g--', 'LineWidth', 2);
-xlabel('MI (null)');
+xline(MI_obs, 'r-',  'LineWidth', 2, 'DisplayName', sprintf('Observed MI = %.5f', MI_obs));
+xline(MI_eq,  'b--', 'LineWidth', 2, 'DisplayName', sprintf('Equalized MI = %.5f', MI_eq));
+xlabel('MI (null distribution)');
 ylabel('Count');
-title(sprintf('Permutation null distribution\nObserved MI (red): %.5f  |  Equalized MI (green): %.5f', MI_obs, MI_eq));
-legend('Null MI', 'Observed', 'Equalized', 'Location', 'northeast');
+title(sprintf('Permutation null  (n = %d shifts)', n_perm), 'FontSize', 10);
+legend('Location', 'northeast');
+box off;
 
-% ── 10c. Phase histogram (data coverage) ──
-subplot(2,2,3);
+% ── Figure 3 (diagnostic): Phase coverage + polar ──
+figure('Name', 'Test 3: Diagnostics', 'Position', [100 560 900 360]);
+
+subplot(1,2,1);
 histogram(rad2deg(all_phase), 36, 'FaceColor', [0.4 0.75 0.4], 'EdgeColor', 'none');
 xlabel('Respiratory phase (°)');
 ylabel('Sample count');
-title('Phase sampling coverage');
+title(sprintf('Phase sampling coverage  (n_{eq} = %d)', n_eq));
 xticks(-180:60:180);
 xlim([-180 180]);
+box off;
 
-% ── 10d. Polar plot of amplitude by phase ──
-subplot(2,2,4);
+subplot(1,2,2);
 theta_polar = [bin_centers(:); bin_centers(1)];
 rho_polar   = [bin_amp(:);     bin_amp(1)];
-polarplot(theta_polar, rho_polar, 'b-o', 'LineWidth', 1.5, 'MarkerSize', 4, 'MarkerFaceColor','b');
+polarplot(theta_polar, rho_polar, 'b-o', 'LineWidth', 1.5, 'MarkerSize', 4, 'MarkerFaceColor', 'b');
 hold on;
-% Mark inspiration peak (phase = 0, convention from preprocess_resp)
 polarplot([0 0], [0 max(bin_amp)*1.05], 'r--', 'LineWidth', 1.2);
-title('Polar: amplitude by resp phase');
+title('Amplitude by resp phase (polar)');
 ax = gca;
 ax.ThetaZeroLocation = 'top';
 ax.ThetaDir = 'counterclockwise';
 
-sgtitle(sprintf('Test 3 — Resp phase → vessel cardiac envelope PAC  |  %d sections, %.0f s total', ...
-    n_sections, total_data_s), 'FontWeight', 'bold');
+sgtitle(sprintf('Test 3 diagnostics  |  %d sections, %.0f s total', n_sections, total_data_s), ...
+    'FontWeight', 'bold');
 
 %% ── 11. Summary to console ────────────────────────────────────────────────
 fprintf('\n── Test 3 Summary ──\n');

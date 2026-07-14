@@ -67,8 +67,8 @@ for ir = 1:n_resp
         ov_s = max(rs, es);
         ov_e = min(re, ee);
         if ov_e > ov_s
-            overlap_t_start(end+1) = ov_s; 
-            overlap_t_end(end+1)   = ov_e; 
+            overlap_t_start(end+1) = ov_s;
+            overlap_t_end(end+1)   = ov_e;
         end
     end
 end
@@ -114,8 +114,8 @@ for is = 1:n_sections
     % Normalised cross-correlation
     [xc, lags] = xcorr(hr_beat, resp_beat, MAX_LAG_BEATS, 'normalized');
 
-    all_xcorr(end+1, :)   = xc;       
-    section_nbeats(end+1) = numel(hr_beat); 
+    all_xcorr(end+1, :)   = xc;
+    section_nbeats(end+1) = numel(hr_beat);
 end
 
 n_valid = size(all_xcorr, 1);
